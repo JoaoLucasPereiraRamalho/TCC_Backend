@@ -1,0 +1,101 @@
+// Schema único, dividido por seções conforme os módulos (docs/estrutura-de-pastas-e-modulos.md, seção 6).
+// Cada tabela pertence a um módulo. Instantes são timestamptz (UTC); datas locais são derivadas
+// do fuso do aluno no momento do cálculo. IDs são UUID v7 gerados pela porta IdGenerator.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =====================================================================
+// identity
+// =====================================================================
+
+enum Role {
+  TRAINER
+  STUDENT
+}
+
+enum LoadUnit {
+  KG
+  LBS
+}
+
+enum TrainingLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+model User {
+  id              String    @id @db.Uuid
+  name            String
+  email           String    @unique
+  passwordHash    String?   @map("password_hash") // nulo para contas só com SSO
+  role            Role
+  timezone        String // nome IANA, ex.: America/Sao_Paulo
+  loadUnit        LoadUnit  @default(KG) @map("load_unit")
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz
+  createdAt       DateTime  @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @map("updated_at") @db.Timestamptz
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz // exclusão LGPD (anonimização)
+
+  trainerProfile TrainerProfile?
+  studentProfile StudentProfile?
+
+  @@map("users")
+}
+
+model TrainerProfile {
+  userId      String   @id @map("user_id") @db.Uuid
+  cref        String
+  specialties String[]
+  plan        String   @default("PRO") // informativo, sem limite de alunos (RN01)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("trainer_profiles")
+}
+
+model StudentProfile {
+  userId    String         @id @map("user_id") @db.Uuid
+  birthDate DateTime?      @map("birth_date") @db.Date
+  heightCm  Int?           @map("height_cm")
+  goal      String?
+  level     TrainingLevel?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("student_profiles")
+}
+
+// Parâmetros de negócio que a ERS pede que não fiquem fixos no código (exposto em GET /config).
+// Lido pela interface pública de identity (SystemSettings).
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+
+  @@map("system_settings")
+}
+
+// =====================================================================
+// platform (outbox de eventos de domínio, entregue pelo worker via pg-boss)
+// =====================================================================
+
+model OutboxEvent {
+  id            String    @id @db.Uuid
+  type          String
+  payload       Json // só ids e fatos, nunca entidades inteiras
+  occurredAt    DateTime  @map("occurred_at") @db.Timestamptz
+  dispatchedAt  DateTime? @map("dispatched_at") @db.Timestamptz
+  attempts      Int       @default(0)
+
+  @@index([dispatchedAt, occurredAt])
+  @@map("outbox_events")
+}

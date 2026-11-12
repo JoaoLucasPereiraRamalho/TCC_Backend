@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci # roda prisma generate no postinstall
+      - run: npm run lint
+      - run: npx prettier --check .
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      # Sprint 2 (FT-7): testes de arquitetura (dependency-cruiser) e publicação da OpenAPI.
+      # Sprint 9: testes de integração com Postgres em contêiner (test/integration).
