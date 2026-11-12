@@ -5,7 +5,6 @@ Monólito modular com NestJS, Prisma e PostgreSQL; o mesmo código sobe como `ap
 
 - Contrato: [`docs/especificacao-api.md`](docs/especificacao-api.md)
 - Organização do código: [`docs/estrutura-de-pastas-e-modulos.md`](docs/estrutura-de-pastas-e-modulos.md)
-- Regras para o assistente de código: [`CLAUDE.md`](CLAUDE.md)
 
 ## Requisitos
 
